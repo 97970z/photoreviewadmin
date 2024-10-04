@@ -1,21 +1,41 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, doc, deleteDoc } from "firebase/firestore";
+import { getStorage, ref, deleteObject } from "firebase/storage";
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyBM-CJ-0HQep6R9kBb8TwNXdat9Zdko8Qw",
-  authDomain: "hangangecopark.firebaseapp.com",
-  projectId: "hangangecopark",
-  storageBucket: "hangangecopark.appspot.com",
-  messagingSenderId: "529202012876",
-  appId: "1:529202012876:web:503792c4e8f6c065a55869",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const storage = getStorage(app);
 
-export { db };
+const deletePhotoAndData = async (photoId, photoUrls) => {
+  try {
+    // Delete Firestore document
+    await deleteDoc(doc(db, "photos", photoId));
+
+    // Delete photos from Storage
+    for (const url of photoUrls) {
+      const photoRef = ref(storage, url);
+      await deleteObject(photoRef);
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error deleting photo and data:", error);
+    return false;
+  }
+};
+
+export { db, storage, deletePhotoAndData };

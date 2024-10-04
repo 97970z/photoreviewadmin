@@ -1,24 +1,3 @@
-// import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
-// import HomePage from "./pages/HomePage";
-// import DetailPage from "./pages/DetailPage";
-// import Header from "./components/Header";
-
-// function App() {
-//   return (
-//     <Router>
-//       <div className="App">
-//         <Header />
-//         <Routes>
-//           <Route exact path="/" element={<HomePage />} />
-//           <Route path="/photo/:id" element={<DetailPage />} />
-//         </Routes>
-//       </div>
-//     </Router>
-//   );
-// }
-
-// export default App;
-
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import { Box, Container } from "@mui/material";
 import { QueryClient, QueryClientProvider } from "react-query";
@@ -26,7 +5,7 @@ import HomePage from "./pages/HomePage";
 import DetailPage from "./pages/DetailPage";
 import Header from "./components/Header";
 
-const queryClient = new QueryClient({
+export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000, // 5분
