@@ -1,6 +1,8 @@
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
-import { Box, Container } from "@mui/material";
+import { Box, Container, CssBaseline } from "@mui/material";
 import { QueryClient, QueryClientProvider } from "react-query";
+import { ThemeProvider } from "@mui/material/styles";
+import theme from "./theme";
 import HomePage from "./pages/HomePage";
 import DetailPage from "./pages/DetailPage";
 import Header from "./components/Header";
@@ -17,23 +19,26 @@ export const queryClient = new QueryClient({
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router>
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: "column",
-            minHeight: "100vh",
-          }}
-        >
-          <Header />
-          <Container component="main" sx={{ flexGrow: 1, py: 3 }}>
-            <Routes>
-              <Route exact path="/" element={<HomePage />} />
-              <Route path="/photo/:id" element={<DetailPage />} />
-            </Routes>
-          </Container>
-        </Box>
-      </Router>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Router>
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              minHeight: "100vh",
+            }}
+          >
+            <Header />
+            <Container component="main" sx={{ flexGrow: 1, py: 3 }}>
+              <Routes>
+                <Route exact path="/" element={<HomePage />} />
+                <Route path="/photo/:id" element={<DetailPage />} />
+              </Routes>
+            </Container>
+          </Box>
+        </Router>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

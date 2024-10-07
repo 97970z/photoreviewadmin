@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import {
   collection,
   query,
@@ -13,7 +13,7 @@ import { useInfiniteQuery } from "react-query";
 import { useLocation } from "react-router-dom";
 import {
   Container,
-  Grid2,
+  Grid,
   Typography,
   Tab,
   Tabs,
@@ -32,20 +32,21 @@ import {
 import { styled } from "@mui/system";
 import { Link } from "react-router-dom";
 
-const StyledCard = styled(Card)(() => ({
+const StyledCard = styled(Card)(({ theme }) => ({
   height: "100%",
   display: "flex",
   flexDirection: "column",
   transition: "transform 0.15s ease-in-out",
   "&:hover": { transform: "scale3d(1.05, 1.05, 1)" },
+  boxShadow: theme.shadows[3],
 }));
 
-const fetchPhotos = async ({ pageParam = null, isReviewed }) => {
-  const pageSize = 9; // 한 페이지당 9개의 항목
+const fetchPhotos = async ({ pageParam = null, isReviewed, sortBy }) => {
+  const pageSize = 9;
   let q = query(
     collection(db, "photos"),
     where("isReviewed", "==", isReviewed),
-    orderBy("timestamp", "desc"),
+    orderBy(sortBy, "desc"),
     limit(pageSize)
   );
 
@@ -89,7 +90,7 @@ function HomePage() {
 
   useEffect(() => {
     refetch();
-  }, [location, refetch]);
+  }, [location, refetch, activeTab, sortBy]);
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
@@ -97,29 +98,13 @@ function HomePage() {
 
   const handleSortChange = (event) => {
     setSortBy(event.target.value);
-    refetch();
-  };
-
-  const sortPhotos = (photos, sortBy) => {
-    return [...photos].sort((a, b) => {
-      if (sortBy === "name") {
-        return a.name.localeCompare(b.name);
-      } else {
-        return b.timestamp.seconds - a.timestamp.seconds;
-      }
-    });
   };
 
   if (isLoading) return <CircularProgress />;
   if (error)
     return <Typography color="error">Error: {error.message}</Typography>;
 
-  const photos = data
-    ? sortPhotos(
-        data.pages.flatMap((page) => page.photos),
-        sortBy
-      )
-    : [];
+  const photos = data ? data.pages.flatMap((page) => page.photos) : [];
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
@@ -155,9 +140,9 @@ function HomePage() {
           </Select>
         </FormControl>
       </Box>
-      <Grid2 container spacing={4}>
+      <Grid container spacing={4}>
         {photos.map((photo) => (
-          <Grid2 item key={photo.id} xs={12} sm={6} md={4}>
+          <Grid item key={photo.id} xs={12} sm={6} md={4}>
             <CardActionArea component={Link} to={`/photo/${photo.id}`}>
               <StyledCard>
                 <CardMedia
@@ -176,9 +161,9 @@ function HomePage() {
                 </CardContent>
               </StyledCard>
             </CardActionArea>
-          </Grid2>
+          </Grid>
         ))}
-      </Grid2>
+      </Grid>
       {hasNextPage && (
         <Box sx={{ mt: 4, textAlign: "center" }}>
           <Button
