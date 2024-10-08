@@ -5,6 +5,15 @@ import "slick-carousel/slick/slick-theme.css";
 import { Typography, Button, Box } from "@mui/material";
 import "./PhotoDetail.css";
 
+const categoryMap = {
+  amphibian: "양서류",
+  plant: "식물",
+  benthicOrganism: "저서생물",
+  insect: "곤충",
+  bird: "조류",
+  mammal: "포유류",
+};
+
 function PhotoDetail({ photo, onReview, onDelete }) {
   const settings = {
     dots: true,
@@ -15,10 +24,13 @@ function PhotoDetail({ photo, onReview, onDelete }) {
     adaptiveHeight: true,
   };
 
+  const categoryLabel = categoryMap[photo.category] || "기타";
+  const title = `[${categoryLabel}] ${photo.name}`;
+
   return (
     <div className="photo-detail">
       <Typography variant="h4" component="h1" gutterBottom>
-        {photo.name}
+        {title}
       </Typography>
       <div className="photo-info">
         <Typography>
@@ -28,6 +40,9 @@ function PhotoDetail({ photo, onReview, onDelete }) {
         <Typography>
           <strong>위치:</strong> 위도 {photo.photos[0].latitude}, 경도{" "}
           {photo.photos[0].longitude}
+        </Typography>
+        <Typography>
+          <strong>카테고리:</strong> {categoryLabel}
         </Typography>
         <Typography>
           <strong>검토 상태:</strong> {photo.isReviewed ? "검토완료" : "미검토"}

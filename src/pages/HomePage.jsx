@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   collection,
   query,
@@ -13,14 +13,10 @@ import { useInfiniteQuery } from "react-query";
 import { useLocation } from "react-router-dom";
 import {
   Container,
-  Grid,
+  Grid2,
   Typography,
   Tab,
   Tabs,
-  Card,
-  CardContent,
-  CardMedia,
-  CardActionArea,
   Box,
   CircularProgress,
   Button,
@@ -29,32 +25,36 @@ import {
   FormControl,
   InputLabel,
 } from "@mui/material";
-import { styled } from "@mui/system";
-import { Link } from "react-router-dom";
+import PhotoCard from "../components/PhotoCard";
 
-const StyledCard = styled(Card)(({ theme }) => ({
-  height: "100%",
-  display: "flex",
-  flexDirection: "column",
-  transition: "transform 0.15s ease-in-out",
-  "&:hover": { transform: "scale3d(1.05, 1.05, 1)" },
-  boxShadow: theme.shadows[3],
-}));
+const categoryMap = {
+  amphibian: "양서류",
+  plant: "식물",
+  benthicOrganism: "저서생물",
+  insect: "곤충",
+  bird: "조류",
+  mammal: "포유류",
+};
 
-const fetchPhotos = async ({ pageParam = null, isReviewed, sortBy }) => {
-  const pageSize = 9;
-  let q = query(
+const fetchPhotos = async ({ pageParam = null, isReviewed, category }) => {
+  const pageSize = 20;
+  let baseQuery = query(
     collection(db, "photos"),
     where("isReviewed", "==", isReviewed),
-    orderBy(sortBy, "desc"),
-    limit(pageSize)
+    orderBy("timestamp", "desc")
   );
 
-  if (pageParam) {
-    q = query(q, startAfter(pageParam));
+  if (category) {
+    baseQuery = query(baseQuery, where("category", "==", category));
   }
 
-  const querySnapshot = await getDocs(q);
+  let finalQuery = query(baseQuery, limit(pageSize));
+
+  if (pageParam) {
+    finalQuery = query(finalQuery, startAfter(pageParam));
+  }
+
+  const querySnapshot = await getDocs(finalQuery);
   const lastVisible = querySnapshot.docs[querySnapshot.docs.length - 1];
 
   const photos = querySnapshot.docs.map((doc) => ({
@@ -62,12 +62,13 @@ const fetchPhotos = async ({ pageParam = null, isReviewed, sortBy }) => {
     ...doc.data(),
   }));
 
-  return { photos, lastVisible };
+  return { photos, lastVisible, hasMore: photos.length === pageSize };
 };
 
 function HomePage() {
   const [activeTab, setActiveTab] = useState("unreviewed");
   const [sortBy, setSortBy] = useState("timestamp");
+  const [category, setCategory] = useState("");
   const location = useLocation();
 
   const {
@@ -79,18 +80,23 @@ function HomePage() {
     isFetchingNextPage,
     refetch,
   } = useInfiniteQuery(
-    ["photos", activeTab, sortBy],
+    ["photos", activeTab, sortBy, category],
     ({ pageParam }) =>
-      fetchPhotos({ pageParam, isReviewed: activeTab === "reviewed", sortBy }),
+      fetchPhotos({
+        pageParam,
+        isReviewed: activeTab === "reviewed",
+        sortBy,
+        category,
+      }),
     {
-      getNextPageParam: (lastPage) => lastPage.lastVisible || undefined,
-      staleTime: 5 * 60 * 1000, // 5분
+      getNextPageParam: (lastPage) =>
+        lastPage.hasMore ? lastPage.lastVisible : undefined,
     }
   );
 
   useEffect(() => {
     refetch();
-  }, [location, refetch, activeTab, sortBy]);
+  }, [location, refetch, activeTab, sortBy, category]);
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
@@ -100,11 +106,17 @@ function HomePage() {
     setSortBy(event.target.value);
   };
 
+  const handleCategoryChange = (event) => {
+    setCategory(event.target.value);
+  };
+
+  const photos = useMemo(() => {
+    return data ? data.pages.flatMap((page) => page.photos) : [];
+  }, [data]);
+
   if (isLoading) return <CircularProgress />;
   if (error)
     return <Typography color="error">Error: {error.message}</Typography>;
-
-  const photos = data ? data.pages.flatMap((page) => page.photos) : [];
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
@@ -127,6 +139,22 @@ function HomePage() {
           <Tab label="미검토" value="unreviewed" />
           <Tab label="검토완료" value="reviewed" />
         </Tabs>
+        <FormControl sx={{ minWidth: 120, mr: 2 }}>
+          <InputLabel id="category-select-label">카테고리</InputLabel>
+          <Select
+            labelId="category-select-label"
+            value={category}
+            label="카테고리"
+            onChange={handleCategoryChange}
+          >
+            <MenuItem value="">전체</MenuItem>
+            {Object.entries(categoryMap).map(([value, label]) => (
+              <MenuItem key={value} value={value}>
+                {label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
         <FormControl sx={{ minWidth: 120 }}>
           <InputLabel id="sort-select-label">정렬</InputLabel>
           <Select
@@ -140,30 +168,13 @@ function HomePage() {
           </Select>
         </FormControl>
       </Box>
-      <Grid container spacing={4}>
+      <Grid2 container spacing={4}>
         {photos.map((photo) => (
-          <Grid item key={photo.id} xs={12} sm={6} md={4}>
-            <CardActionArea component={Link} to={`/photo/${photo.id}`}>
-              <StyledCard>
-                <CardMedia
-                  component="img"
-                  height="200"
-                  image={photo.photos[0].url}
-                  alt={photo.name}
-                />
-                <CardContent>
-                  <Typography gutterBottom variant="h6" component="div">
-                    {photo.name}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    업로드: {photo.timestamp.toDate().toLocaleString()}
-                  </Typography>
-                </CardContent>
-              </StyledCard>
-            </CardActionArea>
-          </Grid>
+          <Grid2 item key={photo.id} xs={12} sm={6} md={4}>
+            <PhotoCard photo={photo} categoryMap={categoryMap} />
+          </Grid2>
         ))}
-      </Grid>
+      </Grid2>
       {hasNextPage && (
         <Box sx={{ mt: 4, textAlign: "center" }}>
           <Button
