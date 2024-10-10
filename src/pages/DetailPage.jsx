@@ -1,6 +1,17 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  query,
+  collection,
+  orderBy,
+  limit,
+  startAfter,
+  endBefore,
+  getDocs,
+} from "firebase/firestore";
 import { db, deletePhotoAndData } from "../services/firebase";
 import PhotoDetail from "../components/PhotoDetail";
 import {
@@ -35,6 +46,40 @@ function DetailPage() {
     throw new Error("Photo not found");
   });
 
+  const { data: prevNextData } = useQuery(
+    ["prevNext", id],
+    async () => {
+      if (!photo) return { prevId: null, nextId: null };
+
+      const photosRef = collection(db, "photos");
+      const prevQuery = query(
+        photosRef,
+        orderBy("timestamp", "desc"),
+        endBefore(photo.timestamp),
+        limit(1)
+      );
+      const nextQuery = query(
+        photosRef,
+        orderBy("timestamp", "desc"),
+        startAfter(photo.timestamp),
+        limit(1)
+      );
+
+      const [prevSnapshot, nextSnapshot] = await Promise.all([
+        getDocs(prevQuery),
+        getDocs(nextQuery),
+      ]);
+
+      const prevId = prevSnapshot.docs[0]?.id || null;
+      const nextId = nextSnapshot.docs[0]?.id || null;
+
+      return { prevId, nextId };
+    },
+    {
+      enabled: !!photo,
+    }
+  );
+
   const handleReview = async () => {
     const docRef = doc(db, "photos", id);
     await updateDoc(docRef, { isReviewed: true });
@@ -58,6 +103,13 @@ function DetailPage() {
     }
   };
 
+  const handleCancelReview = async () => {
+    const docRef = doc(db, "photos", id);
+    await updateDoc(docRef, { isReviewed: false });
+    refetch();
+    queryClient.invalidateQueries("photos");
+  };
+
   if (isLoading) return <CircularProgress />;
   if (error)
     return <Typography color="error">Error: {error.message}</Typography>;
@@ -67,7 +119,10 @@ function DetailPage() {
     <>
       <PhotoDetail
         photo={photo}
+        prevId={prevNextData?.prevId}
+        nextId={prevNextData?.nextId}
         onReview={handleReview}
+        onCancelReview={handleCancelReview}
         onDelete={() => setIsDeleteDialogOpen(true)}
       />
       <Dialog
