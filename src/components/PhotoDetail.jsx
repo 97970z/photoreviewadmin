@@ -98,7 +98,6 @@ function PhotoDetail({
   return (
     <div className="photo-detail">
       <PhotoNavigation prevId={prevId} nextId={nextId} />
-
       <hr />
       <Typography variant="h4" component="h1" gutterBottom>
         {title}
@@ -199,7 +198,6 @@ function PhotoDetail({
           </Button>
         </DialogActions>
       </Dialog>
-      <PhotoNavigation prevId={prevId} nextId={nextId} />
     </div>
   );
 }

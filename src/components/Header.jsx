@@ -23,6 +23,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db, deletePhotoAndData } from "../services/firebase";
+import { exportReviewedDataToExcel } from "../utils/ExcelExport";
 
 function Header() {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -70,6 +71,11 @@ function Header() {
     }
   };
 
+  const handleExportToExcel = () => {
+    exportReviewedDataToExcel();
+    handleClose();
+  };
+
   return (
     <AppBar position="static" color="primary">
       <Toolbar>
@@ -91,6 +97,9 @@ function Header() {
           >
             <MenuItem onClick={handleDeleteUnreviewedOpen}>
               미검토 데이터 일괄 삭제
+            </MenuItem>
+            <MenuItem onClick={handleExportToExcel}>
+              검토 완료 데이터 엑셀 다운로드
             </MenuItem>
           </Menu>
         </Box>
