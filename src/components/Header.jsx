@@ -87,6 +87,9 @@ function Header() {
           <Button color="inherit" component={RouterLink} to="/">
             홈
           </Button>
+          <Button color="inherit" component={RouterLink} to="/trails">
+            산책로
+          </Button>
           <Button color="inherit" onClick={handleClick}>
             메뉴
           </Button>

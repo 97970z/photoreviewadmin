@@ -5,6 +5,7 @@ import { ThemeProvider } from "@mui/material/styles";
 import theme from "./theme";
 import HomePage from "./pages/HomePage";
 import DetailPage from "./pages/DetailPage";
+import TrailsPage from "./pages/TrailsPage";
 import Header from "./components/Header";
 
 export const queryClient = new QueryClient({
@@ -32,8 +33,9 @@ function App() {
             <Header />
             <Container component="main" sx={{ flexGrow: 1, py: 3 }}>
               <Routes>
-                <Route exact path="/" element={<HomePage />} />
+                <Route path="/" element={<HomePage />} />
                 <Route path="/photo/:id" element={<DetailPage />} />
+                <Route path="/trails" element={<TrailsPage />} />
               </Routes>
             </Container>
           </Box>
