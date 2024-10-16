@@ -11,8 +11,10 @@ import {
   startAfter,
   endBefore,
   getDocs,
+  arrayRemove,
 } from "firebase/firestore";
-import { db, deletePhotoAndData } from "../services/firebase";
+import { db, deletePhotoAndData, storage } from "../services/firebase";
+import { ref, deleteObject } from "firebase/storage";
 import PhotoDetail from "../components/PhotoDetail";
 import {
   CircularProgress,
@@ -80,9 +82,9 @@ function DetailPage() {
     }
   );
 
-  const handleReview = async () => {
+  const handleReview = async (additionalInfo) => {
     const docRef = doc(db, "photos", id);
-    await updateDoc(docRef, { isReviewed: true });
+    await updateDoc(docRef, { isReviewed: true, additionalInfo });
     refetch();
     queryClient.invalidateQueries("photos");
   };
@@ -94,10 +96,8 @@ function DetailPage() {
       const isDeleted = await deletePhotoAndData(id, photoUrls);
       if (isDeleted) {
         queryClient.invalidateQueries("photos");
-        // Redirect to home page after deleting photo
         navigate("/");
       } else {
-        // Show error message to user
         alert("삭제 중 오류가 발생했습니다. 다시 시도해주세요.");
       }
     }
@@ -105,9 +105,41 @@ function DetailPage() {
 
   const handleCancelReview = async () => {
     const docRef = doc(db, "photos", id);
-    await updateDoc(docRef, { isReviewed: false });
+    await updateDoc(docRef, { isReviewed: false, additionalInfo: "" });
     refetch();
     queryClient.invalidateQueries("photos");
+  };
+
+  const handleUpdateInfo = async (additionalInfo) => {
+    const docRef = doc(db, "photos", id);
+    await updateDoc(docRef, { additionalInfo });
+    refetch();
+    queryClient.invalidateQueries("photos");
+  };
+
+  const handleRemovePhoto = async (index) => {
+    try {
+      const docRef = doc(db, "photos", id);
+      const photoToRemove = photo.photos[index];
+
+      // Firebase Storage에서 사진 파일 삭제
+      const storageRef = ref(storage, photoToRemove.url);
+      await deleteObject(storageRef);
+
+      // Firestore에서 사진 정보 제거
+      await updateDoc(docRef, {
+        photos: arrayRemove(photoToRemove),
+      });
+
+      // 로컬 상태 및 쿼리 캐시 업데이트
+      refetch();
+      queryClient.invalidateQueries("photos");
+
+      return true; // 제거 성공
+    } catch (error) {
+      console.error("Error removing photo:", error);
+      return false; // 제거 실패
+    }
   };
 
   if (isLoading) return <CircularProgress />;
@@ -124,6 +156,8 @@ function DetailPage() {
         onReview={handleReview}
         onCancelReview={handleCancelReview}
         onDelete={() => setIsDeleteDialogOpen(true)}
+        onUpdateInfo={handleUpdateInfo}
+        onRemovePhoto={handleRemovePhoto}
       />
       <Dialog
         open={isDeleteDialogOpen}

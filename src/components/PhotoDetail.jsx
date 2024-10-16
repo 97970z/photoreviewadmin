@@ -13,6 +13,13 @@ import {
   DialogContentText,
   DialogTitle,
   Skeleton,
+  TextField,
+  Snackbar,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Alert,
 } from "@mui/material";
 import PhotoNavigation from "./PhotoNavigation";
 import "./PhotoDetail.css";
@@ -33,11 +40,20 @@ function PhotoDetail({
   onReview,
   onCancelReview,
   onDelete,
+  onUpdateInfo,
+  onRemovePhoto,
 }) {
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
   const [isCancelReviewDialogOpen, setIsCancelReviewDialogOpen] =
     useState(false);
+  const [isRemovePhotoDialogOpen, setIsRemovePhotoDialogOpen] = useState(false);
+  const [removingPhotoIndex, setRemovingPhotoIndex] = useState("");
   const [imagesLoaded, setImagesLoaded] = useState(false);
+  const [additionalInfo, setAdditionalInfo] = useState(
+    photo.additionalInfo || ""
+  );
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
   const sliderRef = useRef(null);
 
   useEffect(() => {
@@ -55,7 +71,10 @@ function PhotoDetail({
         sliderRef.current.slickGoTo(0);
       }
     });
-  }, [photo.photos]);
+
+    setAdditionalInfo(photo.additionalInfo || "");
+    setRemovingPhotoIndex("");
+  }, [photo]);
 
   const settings = {
     dots: true,
@@ -75,7 +94,7 @@ function PhotoDetail({
 
   const handleReviewConfirm = () => {
     setIsReviewDialogOpen(false);
-    onReview();
+    onReview(additionalInfo);
   };
 
   const handleReviewCancel = () => {
@@ -95,9 +114,53 @@ function PhotoDetail({
     setIsCancelReviewDialogOpen(false);
   };
 
+  const handleAdditionalInfoChange = (event) => {
+    setAdditionalInfo(event.target.value);
+  };
+
+  const handleUpdateInfo = async () => {
+    const success = await onUpdateInfo(additionalInfo);
+    if (success) {
+      setSnackbarMessage("정보가 성공적으로 업데이트되었습니다!");
+      setSnackbarOpen(true);
+    }
+  };
+
+  const handleSnackbarClose = (event, reason) => {
+    if (reason === "clickaway") {
+      return;
+    }
+    setSnackbarOpen(false);
+  };
+
+  const handleRemovePhotoChange = (event) => {
+    setRemovingPhotoIndex(event.target.value);
+  };
+
+  const handleRemovePhotoClick = () => {
+    if (removingPhotoIndex !== "") {
+      setIsRemovePhotoDialogOpen(true);
+    }
+  };
+
+  const handleRemovePhotoConfirm = async () => {
+    setIsRemovePhotoDialogOpen(false);
+    const success = await onRemovePhoto(parseInt(removingPhotoIndex));
+    if (success) {
+      setSnackbarMessage("사진이 성공적으로 제거되었습니다!");
+      setSnackbarOpen(true);
+      setRemovingPhotoIndex("");
+    }
+  };
+
+  const handleRemovePhotoCancel = () => {
+    setIsRemovePhotoDialogOpen(false);
+  };
+
   return (
     <div className="photo-detail">
       <PhotoNavigation prevId={prevId} nextId={nextId} />
+
       <hr />
       <Typography variant="h4" component="h1" gutterBottom>
         {title}
@@ -117,15 +180,43 @@ function PhotoDetail({
         <Typography>
           <strong>검토 상태:</strong> {photo.isReviewed ? "검토완료" : "미검토"}
         </Typography>
-        <Box sx={{ mt: 2, display: "flex", justifyContent: "space-between" }}>
+        <Box sx={{ mt: 2 }}>
+          <TextField
+            label="추가 정보"
+            multiline
+            rows={4}
+            fullWidth
+            value={additionalInfo}
+            onChange={handleAdditionalInfoChange}
+            disabled={!photo.isReviewed}
+          />
+        </Box>
+        <Box
+          sx={{
+            mt: 2,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
           {photo.isReviewed ? (
-            <Button
-              onClick={handleCancelReviewClick}
-              variant="contained"
-              color="secondary"
-            >
-              검토 취소
-            </Button>
+            <>
+              <Button
+                onClick={handleCancelReviewClick}
+                variant="contained"
+                color="secondary"
+              >
+                검토 취소
+              </Button>
+              <Button
+                onClick={handleUpdateInfo}
+                variant="contained"
+                color="primary"
+                disabled={additionalInfo === photo.additionalInfo}
+              >
+                정보 업데이트
+              </Button>
+            </>
           ) : (
             <Button
               onClick={handleReviewClick}
@@ -139,32 +230,58 @@ function PhotoDetail({
             삭제
           </Button>
         </Box>
-      </div>
-      <div
-        className="photo-slider"
-        style={{ aspectRatio: "16/9", position: "relative" }}
-      >
-        {!imagesLoaded && (
-          <Skeleton variant="rectangular" width="100%" height="100%" />
+        {photo.photos.length > 1 && (
+          <Box sx={{ mt: 2, display: "flex", alignItems: "center", gap: 2 }}>
+            <FormControl fullWidth>
+              <InputLabel id="remove-photo-select-label">
+                제거할 사진 선택
+              </InputLabel>
+              <Select
+                labelId="remove-photo-select-label"
+                value={removingPhotoIndex}
+                label="제거할 사진 선택"
+                onChange={handleRemovePhotoChange}
+              >
+                {photo.photos.map((p, index) => (
+                  <MenuItem key={index} value={index}>
+                    사진 {index + 1}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Button
+              onClick={handleRemovePhotoClick}
+              variant="contained"
+              color="error"
+              disabled={removingPhotoIndex === ""}
+            >
+              선택한 사진 제거
+            </Button>
+          </Box>
         )}
-        <Slider
-          {...settings}
-          ref={sliderRef}
-          style={{ opacity: imagesLoaded ? 1 : 0, transition: "opacity 0.3s" }}
-        >
-          {photo.photos.map((p, index) => (
-            <div key={index} style={{ aspectRatio: "16/9" }}>
-              <img
-                src={p.url}
-                alt={`Photo ${index + 1}`}
-                style={{ width: "100%", height: "100%", objectFit: "contain" }}
-              />
-            </div>
-          ))}
-        </Slider>
+      </div>
+      <div className="photo-slider" style={{ marginTop: "20px" }}>
+        {!imagesLoaded ? (
+          <Skeleton variant="rectangular" width="100%" height={400} />
+        ) : (
+          <Slider {...settings} ref={sliderRef}>
+            {photo.photos.map((p, index) => (
+              <div key={index}>
+                <img
+                  src={p.url}
+                  alt={`Photo ${index + 1}`}
+                  style={{
+                    width: "100%",
+                    height: "auto",
+                    objectFit: "contain",
+                  }}
+                />
+              </div>
+            ))}
+          </Slider>
+        )}
       </div>
 
-      {/* ... (Dialog components remain unchanged) ... */}
       <Dialog open={isReviewDialogOpen} onClose={handleReviewCancel}>
         <DialogTitle>검토 완료 확인</DialogTitle>
         <DialogContent>
@@ -198,6 +315,35 @@ function PhotoDetail({
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Dialog open={isRemovePhotoDialogOpen} onClose={handleRemovePhotoCancel}>
+        <DialogTitle>사진 제거 확인</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            선택한 사진을 정말로 제거하시겠습니까? 이 작업은 취소할 수 없습니다.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleRemovePhotoCancel}>취소</Button>
+          <Button onClick={handleRemovePhotoConfirm} color="error">
+            제거
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
+        onClose={handleSnackbarClose}
+      >
+        <Alert
+          onClose={handleSnackbarClose}
+          severity="success"
+          sx={{ width: "100%" }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </div>
   );
 }
