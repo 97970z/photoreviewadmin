@@ -23,7 +23,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db, deletePhotoAndData } from "../services/firebase";
-import { exportReviewedDataToExcel } from "../utils/ExcelExport";
+import { exportReviewedDataToExcel } from "../utils/excelExport";
 
 function Header() {
   const [anchorEl, setAnchorEl] = useState(null);

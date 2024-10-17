@@ -25,16 +25,8 @@ import {
   FormControl,
   InputLabel,
 } from "@mui/material";
-import PhotoCard from "../components/PhotoCard";
-
-const categoryMap = {
-  amphibian: "양서류",
-  plant: "식물",
-  benthicOrganism: "저서생물",
-  insect: "곤충",
-  bird: "조류",
-  mammal: "포유류",
-};
+import PhotoCard from "../components/Home/PhotoCard";
+import { categoryMap } from "../utils/categoryMap";
 
 const fetchPhotos = async ({ pageParam = null, isReviewed, category }) => {
   const pageSize = 20;

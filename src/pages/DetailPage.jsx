@@ -1,5 +1,16 @@
 import { useState } from "react";
+import { useQuery } from "react-query";
 import { useParams, useNavigate } from "react-router-dom";
+import {
+  CircularProgress,
+  Typography,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+} from "@mui/material";
 import {
   doc,
   getDoc,
@@ -13,20 +24,9 @@ import {
   getDocs,
   arrayRemove,
 } from "firebase/firestore";
-import { db, deletePhotoAndData, storage } from "../services/firebase";
 import { ref, deleteObject } from "firebase/storage";
-import PhotoDetail from "../components/PhotoDetail";
-import {
-  CircularProgress,
-  Typography,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-} from "@mui/material";
-import { useQuery } from "react-query";
+import { db, deletePhotoAndData, storage } from "../services/firebase";
+import PhotoDetail from "../components/Detail/PhotoDetail";
 import { queryClient } from "../App";
 
 function DetailPage() {

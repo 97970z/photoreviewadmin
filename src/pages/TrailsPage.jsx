@@ -1,15 +1,10 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Typography, Container, Box, Tab, Tabs, Paper } from "@mui/material";
-import {
-  GoogleMap,
-  useJsApiLoader,
-  Polyline,
-  // Marker,
-} from "@react-google-maps/api";
+import { GoogleMap, useJsApiLoader, Polyline } from "@react-google-maps/api";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../services/firebase";
-import StatisticsCard from "../components/StatisticsCard";
-import HeatmapCard from "../components/HeatmapCard";
+import StatisticsCard from "../components/Trails/StatisticsCard";
+import HeatmapCard from "../components/Trails/HeatmapCard";
 
 const center = {
   lat: 37.5186837,
@@ -19,6 +14,7 @@ const center = {
 const TrailsPage = () => {
   const [trails, setTrails] = useState([]);
   const [tabValue, setTabValue] = useState(0);
+  const [mapLoaded, setMapLoaded] = useState(false);
   const { isLoaded } = useJsApiLoader({
     id: "google-map-script",
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
@@ -29,10 +25,12 @@ const TrailsPage = () => {
 
   const onLoad = useCallback(function callback(map) {
     setMap(map);
+    setMapLoaded(true);
   }, []);
 
   const onUnmount = useCallback(function callback() {
     setMap(null);
+    setMapLoaded(false);
   }, []);
 
   useEffect(() => {
@@ -84,30 +82,27 @@ const TrailsPage = () => {
               onLoad={onLoad}
               onUnmount={onUnmount}
             >
-              {trails.map((trail) => {
-                const path = Array.isArray(trail.path)
-                  ? trail.path.map(parseCoordinates).filter(Boolean)
-                  : [];
-                // const startPoint = parseCoordinates(trail.startPoint);
-                // const endPoint = parseCoordinates(trail.endPoint);
+              {mapLoaded &&
+                trails.map((trail) => {
+                  const path = Array.isArray(trail.path)
+                    ? trail.path.map(parseCoordinates).filter(Boolean)
+                    : [];
 
-                return (
-                  <React.Fragment key={trail.id}>
-                    {path.length > 0 && (
-                      <Polyline
-                        path={path}
-                        options={{
-                          strokeColor: "#FF0000",
-                          strokeOpacity: 1.0,
-                          strokeWeight: 2,
-                        }}
-                      />
-                    )}
-                    {/* {startPoint && <Marker position={startPoint} label="S" />}
-                    {endPoint && <Marker position={endPoint} label="E" />} */}
-                  </React.Fragment>
-                );
-              })}
+                  return (
+                    <React.Fragment key={trail.id}>
+                      {path.length > 0 && (
+                        <Polyline
+                          path={path}
+                          options={{
+                            strokeColor: "#FF0000",
+                            strokeOpacity: 1.0,
+                            strokeWeight: 2,
+                          }}
+                        />
+                      )}
+                    </React.Fragment>
+                  );
+                })}
             </GoogleMap>
           ) : (
             <Typography>Loading map...</Typography>

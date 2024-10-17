@@ -1,15 +1,7 @@
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "../services/firebase";
+import { categoryMap } from "./categoryMap";
 import * as XLSX from "xlsx";
-
-const categoryMap = {
-  amphibian: "양서류",
-  plant: "식물",
-  benthicOrganism: "저서생물",
-  insect: "곤충",
-  bird: "조류",
-  mammal: "포유류",
-};
 
 export const exportReviewedDataToExcel = async () => {
   try {
