@@ -1,3 +1,5 @@
+/* eslint-disable no-unused-vars */
+
 import React, { useState, useEffect, useCallback } from "react";
 import { Typography, Container, Box, Tab, Tabs, Paper } from "@mui/material";
 import { GoogleMap, useJsApiLoader, Polyline } from "@react-google-maps/api";
@@ -5,6 +7,7 @@ import { collection, getDocs } from "firebase/firestore";
 import { db } from "../services/firebase";
 import StatisticsCard from "../components/Trails/StatisticsCard";
 import HeatmapCard from "../components/Trails/HeatmapCard";
+import TrailStatistics from "../components/Trails/TrailStatistics";
 
 const center = {
   lat: 37.5186837,
@@ -21,7 +24,7 @@ const TrailsPage = () => {
     libraries: ["visualization"],
   });
 
-  const [, setMap] = useState(null);
+  const [map, setMap] = useState(null);
 
   const onLoad = useCallback(function callback(map) {
     setMap(map);
@@ -72,8 +75,10 @@ const TrailsPage = () => {
           <Tab label="히트맵" />
         </Tabs>
       </Paper>
+
+      {/* 산책로 지도 탭 */}
       <Box sx={{ display: tabValue === 0 ? "block" : "none" }}>
-        <Paper elevation={3} sx={{ height: 500, p: 2 }}>
+        <Paper elevation={3} sx={{ height: 500, p: 2, mb: 3 }}>
           {isLoaded ? (
             <GoogleMap
               mapContainerStyle={{ width: "100%", height: "100%" }}
@@ -108,10 +113,15 @@ const TrailsPage = () => {
             <Typography>Loading map...</Typography>
           )}
         </Paper>
-      </Box>
-      <Box sx={{ display: tabValue === 1 ? "block" : "none" }}>
         <StatisticsCard trails={trails} />
       </Box>
+
+      {/* 통계 탭 */}
+      <Box sx={{ display: tabValue === 1 ? "block" : "none" }}>
+        <TrailStatistics trails={trails} />
+      </Box>
+
+      {/* 히트맵 탭 */}
       <Box sx={{ display: tabValue === 2 ? "block" : "none" }}>
         <HeatmapCard trails={trails} />
       </Box>

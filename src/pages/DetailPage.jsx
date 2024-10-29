@@ -18,9 +18,7 @@ import {
   query,
   collection,
   orderBy,
-  limit,
-  startAfter,
-  endBefore,
+  where,
   getDocs,
   arrayRemove,
 } from "firebase/firestore";
@@ -34,6 +32,7 @@ function DetailPage() {
   const navigate = useNavigate();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
+  // 현재 사진 데이터 조회
   const {
     data: photo,
     isLoading,
@@ -48,34 +47,37 @@ function DetailPage() {
     throw new Error("Photo not found");
   });
 
+  // 이전/다음 사진 ID 조회
   const { data: prevNextData } = useQuery(
-    ["prevNext", id],
+    ["prevNext", id, photo?.isReviewed],
     async () => {
       if (!photo) return { prevId: null, nextId: null };
 
       const photosRef = collection(db, "photos");
-      const prevQuery = query(
-        photosRef,
-        orderBy("timestamp", "desc"),
-        endBefore(photo.timestamp),
-        limit(1)
-      );
-      const nextQuery = query(
-        photosRef,
-        orderBy("timestamp", "desc"),
-        startAfter(photo.timestamp),
-        limit(1)
-      );
 
-      const [prevSnapshot, nextSnapshot] = await Promise.all([
-        getDocs(prevQuery),
-        getDocs(nextQuery),
-      ]);
+      try {
+        // 전체 문서 목록을 가져옵니다
+        const fullQuery = query(
+          photosRef,
+          where("isReviewed", "==", photo.isReviewed),
+          orderBy("timestamp", "desc")
+        );
+        const snapshot = await getDocs(fullQuery);
 
-      const prevId = prevSnapshot.docs[0]?.id || null;
-      const nextId = nextSnapshot.docs[0]?.id || null;
+        // 현재 문서의 인덱스를 찾습니다
+        const docs = snapshot.docs;
+        const currentIndex = docs.findIndex((doc) => doc.id === id);
 
-      return { prevId, nextId };
+        // 이전과 다음 문서의 ID를 찾습니다
+        const prevId = currentIndex > 0 ? docs[currentIndex - 1]?.id : null;
+        const nextId =
+          currentIndex < docs.length - 1 ? docs[currentIndex + 1]?.id : null;
+
+        return { prevId, nextId };
+      } catch (error) {
+        console.error("Error fetching prev/next photos:", error);
+        return { prevId: null, nextId: null };
+      }
     },
     {
       enabled: !!photo,
@@ -115,6 +117,7 @@ function DetailPage() {
     await updateDoc(docRef, { additionalInfo });
     refetch();
     queryClient.invalidateQueries("photos");
+    return true;
   };
 
   const handleRemovePhoto = async (index) => {
@@ -122,23 +125,20 @@ function DetailPage() {
       const docRef = doc(db, "photos", id);
       const photoToRemove = photo.photos[index];
 
-      // Firebase Storage에서 사진 파일 삭제
       const storageRef = ref(storage, photoToRemove.url);
       await deleteObject(storageRef);
 
-      // Firestore에서 사진 정보 제거
       await updateDoc(docRef, {
         photos: arrayRemove(photoToRemove),
       });
 
-      // 로컬 상태 및 쿼리 캐시 업데이트
       refetch();
       queryClient.invalidateQueries("photos");
 
-      return true; // 제거 성공
+      return true;
     } catch (error) {
       console.error("Error removing photo:", error);
-      return false; // 제거 실패
+      return false;
     }
   };
 
