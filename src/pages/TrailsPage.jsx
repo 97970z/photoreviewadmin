@@ -1,40 +1,39 @@
 /* eslint-disable no-unused-vars */
-
-import React, { useState, useEffect, useCallback } from "react";
-import { Typography, Container, Box, Tab, Tabs, Paper } from "@mui/material";
-import { GoogleMap, useJsApiLoader, Polyline } from "@react-google-maps/api";
+import React, { useState, useEffect } from "react";
+import {
+  Typography,
+  Container,
+  Box,
+  Tab,
+  Tabs,
+  Paper,
+  Grid,
+  Button,
+  Divider,
+  Stack,
+} from "@mui/material";
+import { useJsApiLoader } from "@react-google-maps/api";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../services/firebase";
 import StatisticsCard from "../components/Trails/StatisticsCard";
 import HeatmapCard from "../components/Trails/HeatmapCard";
 import TrailStatistics from "../components/Trails/TrailStatistics";
-
-const center = {
-  lat: 37.5186837,
-  lng: 126.9219841,
-};
+import RestartAltIcon from "@mui/icons-material/RestartAlt";
+import MapIcon from "@mui/icons-material/Map";
+import TrailMap from "../components/Trails/TrailMap";
 
 const TrailsPage = () => {
   const [trails, setTrails] = useState([]);
+  const [selectedPersonTrails, setSelectedPersonTrails] = useState([]);
+  const [selectedPersonName, setSelectedPersonName] = useState("");
   const [tabValue, setTabValue] = useState(0);
-  const [mapLoaded, setMapLoaded] = useState(false);
+  const [selectedMapKey, setSelectedMapKey] = useState(Date.now());
+
   const { isLoaded } = useJsApiLoader({
     id: "google-map-script",
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
     libraries: ["visualization"],
   });
-
-  const [map, setMap] = useState(null);
-
-  const onLoad = useCallback(function callback(map) {
-    setMap(map);
-    setMapLoaded(true);
-  }, []);
-
-  const onUnmount = useCallback(function callback() {
-    setMap(null);
-    setMapLoaded(false);
-  }, []);
 
   useEffect(() => {
     const fetchTrails = async () => {
@@ -51,79 +50,132 @@ const TrailsPage = () => {
     fetchTrails();
   }, []);
 
-  const parseCoordinates = (coord) => {
-    if (!coord) return null;
-    if (typeof coord === "object" && "_lat" in coord && "_long" in coord) {
-      return { lat: coord._lat, lng: coord._long };
-    }
-    return null;
-  };
-
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
   };
 
+  const handlePersonSelect = (personName) => {
+    if (!personName) {
+      resetSelection();
+    } else {
+      const filtered = trails.filter((trail) => trail.name === personName);
+      setSelectedPersonTrails(filtered);
+      setSelectedPersonName(personName);
+    }
+  };
+
+  const [mapKey, setMapKey] = useState(Date.now());
+
+  const resetSelection = () => {
+    setSelectedPersonTrails([]);
+    setSelectedPersonName("");
+    setSelectedMapKey(Date.now()); // 선택된 지도만 리렌더링
+  };
+
+  const renderMapContainer = (trailsData, title, showReset = false) => (
+    <Paper
+      elevation={3}
+      sx={{
+        height: "100%",
+        minHeight: 500,
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <Box
+        sx={{
+          p: 2,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          borderBottom: 1,
+          borderColor: "divider",
+        }}
+      >
+        <Stack direction="row" spacing={1} alignItems="center">
+          <MapIcon color="primary" />
+          <Typography variant="h6" color="primary">
+            {title}
+          </Typography>
+        </Stack>
+        {showReset && selectedPersonName && (
+          <Button
+            startIcon={<RestartAltIcon />}
+            onClick={resetSelection}
+            variant="outlined"
+            size="small"
+          >
+            초기화
+          </Button>
+        )}
+      </Box>
+      <TrailMap
+        isLoaded={isLoaded}
+        trails={trailsData}
+        mapKey={showReset ? selectedMapKey : undefined}
+      />
+    </Paper>
+  );
+
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Typography variant="h4" component="h1" gutterBottom sx={{ mb: 3 }}>
-        산책로 분석
-      </Typography>
-      <Paper elevation={3} sx={{ mb: 3 }}>
-        <Tabs value={tabValue} onChange={handleTabChange} centered>
+    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+      <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          산책로 분석
+        </Typography>
+        <Divider sx={{ my: 2 }} />
+        <Tabs
+          value={tabValue}
+          onChange={handleTabChange}
+          centered
+          sx={{
+            "& .MuiTabs-indicator": {
+              height: 3,
+            },
+          }}
+        >
           <Tab label="산책로 지도" />
           <Tab label="통계" />
           <Tab label="히트맵" />
         </Tabs>
       </Paper>
 
-      {/* 산책로 지도 탭 */}
       <Box sx={{ display: tabValue === 0 ? "block" : "none" }}>
-        <Paper elevation={3} sx={{ height: 500, p: 2, mb: 3 }}>
-          {isLoaded ? (
-            <GoogleMap
-              mapContainerStyle={{ width: "100%", height: "100%" }}
-              center={center}
-              zoom={17}
-              onLoad={onLoad}
-              onUnmount={onUnmount}
-            >
-              {mapLoaded &&
-                trails.map((trail) => {
-                  const path = Array.isArray(trail.path)
-                    ? trail.path.map(parseCoordinates).filter(Boolean)
-                    : [];
-
-                  return (
-                    <React.Fragment key={trail.id}>
-                      {path.length > 0 && (
-                        <Polyline
-                          path={path}
-                          options={{
-                            strokeColor: "#FF0000",
-                            strokeOpacity: 1.0,
-                            strokeWeight: 2,
-                          }}
-                        />
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-            </GoogleMap>
-          ) : (
-            <Typography>Loading map...</Typography>
-          )}
-        </Paper>
-        <StatisticsCard trails={trails} />
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            {renderMapContainer(trails, "전체 산책로")}
+          </Grid>
+          <Grid item xs={12} md={6}>
+            {renderMapContainer(
+              selectedPersonTrails,
+              selectedPersonName
+                ? `${selectedPersonName}님의 산책로`
+                : "선택된 산책로",
+              true
+            )}
+          </Grid>
+          <Grid item xs={12}>
+            <StatisticsCard
+              trails={trails}
+              onPersonSelect={handlePersonSelect}
+              selectedPersonName={selectedPersonName}
+            />
+          </Grid>
+        </Grid>
       </Box>
-
-      {/* 통계 탭 */}
-      <Box sx={{ display: tabValue === 1 ? "block" : "none" }}>
-        <TrailStatistics trails={trails} />
-      </Box>
-
-      {/* 히트맵 탭 */}
       <Box sx={{ display: tabValue === 2 ? "block" : "none" }}>
-        <HeatmapCard trails={trails} />
+        <HeatmapCard
+          trails={trails}
+          onPersonSelect={handlePersonSelect}
+          selectedPersonName={selectedPersonName}
+        />
+      </Box>
+      <Box sx={{ display: tabValue === 1 ? "block" : "none" }}>
+        <TrailStatistics
+          trails={
+            selectedPersonTrails.length > 0 ? selectedPersonTrails : trails
+          }
+        />
       </Box>
     </Container>
   );

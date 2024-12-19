@@ -1,7 +1,7 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, deleteDoc } from "firebase/firestore";
-import { getStorage, ref, deleteObject } from "firebase/storage";
+import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -20,22 +20,4 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-const deletePhotoAndData = async (photoId, photoUrls) => {
-  try {
-    // Delete Firestore document
-    await deleteDoc(doc(db, "photos", photoId));
-
-    // Delete photos from Storage
-    for (const url of photoUrls) {
-      const photoRef = ref(storage, url);
-      await deleteObject(photoRef);
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Error deleting photo and data:", error);
-    return false;
-  }
-};
-
-export { db, storage, deletePhotoAndData };
+export { db, storage };

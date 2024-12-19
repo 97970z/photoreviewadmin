@@ -298,7 +298,7 @@ const TrailDetail = ({ trail }) => {
   );
 };
 
-const StatisticsCard = ({ trails }) => {
+const StatisticsCard = ({ trails, onPersonSelect, selectedPerson }) => {
   const [selectedTrail, setSelectedTrail] = useState(null);
   const [trailsByPerson, setTrailsByPerson] = useState({});
   const theme = useTheme();
@@ -328,6 +328,14 @@ const StatisticsCard = ({ trails }) => {
       setTrailsByPerson({});
     }
   }, [trails]);
+
+  const handlePersonClick = (personName) => {
+    if (selectedPerson === personName) {
+      onPersonSelect(null); // Deselect if clicking the same person
+    } else {
+      onPersonSelect(personName);
+    }
+  };
 
   return (
     <Box sx={{ p: 3 }}>
@@ -363,7 +371,16 @@ const StatisticsCard = ({ trails }) => {
             {Object.entries(trailsByPerson).map(
               ([personName, personTrails]) => (
                 <Box key={personName}>
-                  <ListItem>
+                  <ListItem
+                    button
+                    onClick={() => handlePersonClick(personName)}
+                    sx={{
+                      bgcolor:
+                        selectedPerson === personName
+                          ? "action.selected"
+                          : "inherit",
+                    }}
+                  >
                     <ListItemAvatar>
                       <Avatar>
                         <PersonIcon />

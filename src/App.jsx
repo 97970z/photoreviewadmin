@@ -3,8 +3,6 @@ import { Box, Container, CssBaseline } from "@mui/material";
 import { QueryClient, QueryClientProvider } from "react-query";
 import { ThemeProvider } from "@mui/material/styles";
 import theme from "./theme";
-import HomePage from "./pages/HomePage";
-import DetailPage from "./pages/DetailPage";
 import TrailsPage from "./pages/TrailsPage";
 import Header from "./components/Header";
 
@@ -33,9 +31,7 @@ function App() {
             <Header />
             <Container component="main" sx={{ flexGrow: 1, py: 3 }}>
               <Routes>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/photo/:id" element={<DetailPage />} />
-                <Route path="/trails" element={<TrailsPage />} />
+                <Route path="/" element={<TrailsPage />} />
               </Routes>
             </Container>
           </Box>
