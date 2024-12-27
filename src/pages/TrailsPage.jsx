@@ -1,5 +1,4 @@
-/* eslint-disable no-unused-vars */
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Typography,
   Container,
@@ -24,7 +23,7 @@ import TrailMap from "../components/Trails/TrailMap";
 
 const TrailsPage = () => {
   const [trails, setTrails] = useState([]);
-  const [selectedPersonTrails, setSelectedPersonTrails] = useState([]);
+  const [selectedTrail, setSelectedTrail] = useState(null);
   const [selectedPersonName, setSelectedPersonName] = useState("");
   const [tabValue, setTabValue] = useState(0);
   const [selectedMapKey, setSelectedMapKey] = useState(Date.now());
@@ -55,21 +54,29 @@ const TrailsPage = () => {
   };
 
   const handlePersonSelect = (personName) => {
-    if (!personName) {
-      resetSelection();
-    } else {
-      const filtered = trails.filter((trail) => trail.name === personName);
-      setSelectedPersonTrails(filtered);
-      setSelectedPersonName(personName);
-    }
+    setSelectedPersonName(personName);
+    setSelectedTrail(null);
   };
 
-  const [mapKey, setMapKey] = useState(Date.now());
+  const handleTrailSelect = (trail) => {
+    setSelectedTrail(trail);
+  };
+
+  const refreshTrails = async () => {
+    const trailsCollection = collection(db, "trails");
+    const trailSnapshot = await getDocs(trailsCollection);
+    const trailList = trailSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+      timestamp: doc.data().timestamp?.toDate(),
+    }));
+    setTrails(trailList);
+  };
 
   const resetSelection = () => {
-    setSelectedPersonTrails([]);
+    setSelectedTrail(null);
     setSelectedPersonName("");
-    setSelectedMapKey(Date.now()); // 선택된 지도만 리렌더링
+    setSelectedMapKey(Date.now());
   };
 
   const renderMapContainer = (trailsData, title, showReset = false) => (
@@ -98,7 +105,7 @@ const TrailsPage = () => {
             {title}
           </Typography>
         </Stack>
-        {showReset && selectedPersonName && (
+        {showReset && (selectedPersonName || selectedTrail) && (
           <Button
             startIcon={<RestartAltIcon />}
             onClick={resetSelection}
@@ -116,6 +123,25 @@ const TrailsPage = () => {
       />
     </Paper>
   );
+
+  const getSelectedTrails = () => {
+    if (selectedTrail) {
+      return [selectedTrail];
+    }
+    return [];
+  };
+
+  const getMapTitle = () => {
+    if (selectedTrail) {
+      return `${selectedTrail.name}님의 ${new Date(
+        selectedTrail.timestamp
+      ).toLocaleDateString()} 산책로`;
+    }
+    if (selectedPersonName) {
+      return `${selectedPersonName}님의 산책로 선택`;
+    }
+    return "선택된 산책로";
+  };
 
   return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
@@ -146,35 +172,35 @@ const TrailsPage = () => {
             {renderMapContainer(trails, "전체 산책로")}
           </Grid>
           <Grid item xs={12} md={6}>
-            {renderMapContainer(
-              selectedPersonTrails,
-              selectedPersonName
-                ? `${selectedPersonName}님의 산책로`
-                : "선택된 산책로",
-              true
-            )}
+            {renderMapContainer(getSelectedTrails(), getMapTitle(), true)}
           </Grid>
-          <Grid item xs={12}>
-            <StatisticsCard
-              trails={trails}
-              onPersonSelect={handlePersonSelect}
-              selectedPersonName={selectedPersonName}
-            />
-          </Grid>
+          {trails && trails.length > 0 && (
+            <Grid item xs={12}>
+              <StatisticsCard
+                trails={trails}
+                onPersonSelect={handlePersonSelect}
+                onTrailSelect={handleTrailSelect}
+                onTrailDeleted={refreshTrails}
+                selectedPersonName={selectedPersonName}
+                selectedTrail={selectedTrail}
+              />
+            </Grid>
+          )}
         </Grid>
       </Box>
       <Box sx={{ display: tabValue === 2 ? "block" : "none" }}>
         <HeatmapCard
           trails={trails}
           onPersonSelect={handlePersonSelect}
+          onTrailSelect={handleTrailSelect}
+          onTrailDeleted={refreshTrails}
           selectedPersonName={selectedPersonName}
+          selectedTrail={selectedTrail}
         />
       </Box>
       <Box sx={{ display: tabValue === 1 ? "block" : "none" }}>
         <TrailStatistics
-          trails={
-            selectedPersonTrails.length > 0 ? selectedPersonTrails : trails
-          }
+          trails={getSelectedTrails().length > 0 ? getSelectedTrails() : trails}
         />
       </Box>
     </Container>

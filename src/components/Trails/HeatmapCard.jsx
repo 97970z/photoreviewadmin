@@ -1,6 +1,7 @@
 /* eslint-disable no-unused-vars */
 /* eslint-disable react/prop-types */
 import React, { useState, useEffect, useCallback } from "react";
+import { deleteTrail } from "../../services/firebase";
 import {
   Typography,
   Paper,
@@ -15,15 +16,23 @@ import {
   Avatar,
   useTheme,
   IconButton,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Button,
   Stack,
+  Collapse,
 } from "@mui/material";
 import {
   Person as PersonIcon,
   KeyboardArrowRight as ArrowIcon,
   RestartAlt as RestartAltIcon,
   Map as MapIcon,
+  ExpandMore as ExpandMoreIcon,
 } from "@mui/icons-material";
+import DeleteIcon from "@mui/icons-material/Delete";
 import {
   GoogleMap,
   useJsApiLoader,
@@ -42,8 +51,8 @@ const center = {
 
 const formatDate = (timestamp) => {
   if (!timestamp) return "날짜 정보 없음";
-  const date = timestamp instanceof Date ? timestamp : timestamp.toDate();
-  return date.toLocaleDateString("ko-KR", {
+  const date = timestamp instanceof Date ? timestamp : timestamp?.toDate();
+  return date?.toLocaleDateString("ko-KR", {
     year: "numeric",
     month: "long",
     day: "numeric",
@@ -114,7 +123,7 @@ const HeatMap = ({ trails, isLoaded, title, showReset, onReset }) => {
             {title}
           </Typography>
         </Stack>
-        {showReset && trails.length > 0 && (
+        {showReset && trails?.length > 0 && (
           <Button
             startIcon={<RestartAltIcon />}
             onClick={onReset}
@@ -158,8 +167,17 @@ const HeatMap = ({ trails, isLoaded, title, showReset, onReset }) => {
   );
 };
 
-const HeatmapCard = ({ trails, onPersonSelect, selectedPersonName }) => {
-  const [selectedTrail, setSelectedTrail] = useState(null);
+const HeatmapCard = ({
+  trails,
+  onPersonSelect,
+  onTrailSelect,
+  onTrailDeleted,
+  selectedPersonName,
+  selectedTrail,
+}) => {
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [trailToDelete, setTrailToDelete] = useState(null);
+  const [expandedPerson, setExpandedPerson] = useState(null);
   const [trailsByPerson, setTrailsByPerson] = useState({});
   const theme = useTheme();
   const { isLoaded } = useJsApiLoader({
@@ -169,7 +187,7 @@ const HeatmapCard = ({ trails, onPersonSelect, selectedPersonName }) => {
   });
 
   useEffect(() => {
-    const groupedTrails = trails.reduce((acc, trail) => {
+    const groupedTrails = (trails || []).reduce((acc, trail) => {
       const name = trail.name || "이름 없음";
       if (!acc[name]) {
         acc[name] = [];
@@ -184,7 +202,7 @@ const HeatmapCard = ({ trails, onPersonSelect, selectedPersonName }) => {
           a.timestamp instanceof Date ? a.timestamp : a.timestamp?.toDate();
         const dateB =
           b.timestamp instanceof Date ? b.timestamp : b.timestamp?.toDate();
-        return (dateB || 0) - (dateA || 0);
+        return dateB - dateA;
       });
     });
 
@@ -194,139 +212,219 @@ const HeatmapCard = ({ trails, onPersonSelect, selectedPersonName }) => {
   const handlePersonClick = (personName) => {
     if (selectedPersonName === personName) {
       onPersonSelect(null);
+      setExpandedPerson(null);
     } else {
       onPersonSelect(personName);
+      setExpandedPerson(personName);
     }
+    onTrailSelect(null);
+  };
+
+  const handleTrailClick = (trail) => {
+    onTrailSelect(trail);
+  };
+
+  const handleDeleteClick = (e, trail) => {
+    e.stopPropagation();
+    setTrailToDelete(trail);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (trailToDelete) {
+      const success = await deleteTrail(trailToDelete.id);
+      if (success) {
+        // 삭제 후 목록 새로고침을 위해 부모 컴포넌트에서 trails를 다시 불러오는 함수 호출
+        onTrailDeleted();
+        if (selectedTrail?.id === trailToDelete.id) {
+          onTrailSelect(null);
+        }
+      }
+    }
+    setDeleteDialogOpen(false);
+    setTrailToDelete(null);
   };
 
   const resetSelection = () => {
     onPersonSelect(null);
+    onTrailSelect(null);
+    setExpandedPerson(null);
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
-          <HeatMap
-            trails={trails}
-            isLoaded={isLoaded}
-            title="전체 산책로 히트맵"
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <HeatMap
-            key={selectedPersonName || "default"}
-            trails={trails.filter((trail) => trail.name === selectedPersonName)}
-            isLoaded={isLoaded}
-            title={
-              selectedPersonName
-                ? `${selectedPersonName}님의 산책로 히트맵`
-                : "선택된 산책로 히트맵"
-            }
-            showReset={true}
-            onReset={resetSelection}
-          />
-        </Grid>
-        <Grid item xs={12}>
-          <Paper
-            elevation={2}
-            sx={{
-              minHeight: "600px",
-              display: "flex",
-              overflow: "hidden",
-            }}
-          >
-            <Box
+    <>
+      <Box sx={{ p: 3 }}>
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            <HeatMap
+              trails={trails}
+              isLoaded={isLoaded}
+              title="전체 산책로 히트맵"
+            />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <HeatMap
+              trails={selectedTrail ? [selectedTrail] : []}
+              isLoaded={isLoaded}
+              title={
+                selectedTrail
+                  ? `${selectedTrail.name}님의 산책로 히트맵`
+                  : "선택된 산책로 히트맵"
+              }
+              showReset={true}
+              onReset={resetSelection}
+            />
+          </Grid>
+          <Grid item xs={12}>
+            <Paper
+              elevation={2}
               sx={{
-                width: "400px",
-                borderRight: "1px solid",
-                borderColor: "divider",
+                minHeight: "600px",
                 display: "flex",
-                flexDirection: "column",
+                overflow: "hidden",
               }}
             >
-              <Typography
-                variant="h6"
+              <Box
                 sx={{
-                  p: 2,
-                  backgroundColor: theme.palette.primary.main,
-                  color: "white",
+                  width: "400px",
+                  borderRight: "1px solid",
+                  borderColor: "divider",
+                  display: "flex",
+                  flexDirection: "column",
                 }}
               >
-                산책로 기록
-              </Typography>
-              <List sx={{ overflow: "auto", flex: 1 }}>
-                {Object.entries(trailsByPerson).map(
-                  ([personName, personTrails]) => (
-                    <Box key={personName}>
-                      <ListItem
-                        button
-                        onClick={() => handlePersonClick(personName)}
-                        sx={{
-                          bgcolor:
-                            selectedPersonName === personName
-                              ? "action.selected"
-                              : "inherit",
-                        }}
-                      >
-                        <ListItemAvatar>
-                          <Avatar>
-                            <PersonIcon />
-                          </Avatar>
-                        </ListItemAvatar>
-                        <ListItemText
-                          primary={personName}
-                          secondary={`총 ${personTrails.length}개의 산책로`}
-                        />
-                      </ListItem>
-                      {personTrails.map((trail, index) => (
-                        <ListItemButton
-                          key={index}
-                          onClick={() => setSelectedTrail(trail)}
-                          selected={selectedTrail?.id === trail.id}
+                <Typography
+                  variant="h6"
+                  sx={{
+                    p: 2,
+                    backgroundColor: theme.palette.primary.main,
+                    color: "white",
+                  }}
+                >
+                  산책로 기록
+                </Typography>
+                <List sx={{ overflow: "auto", flex: 1 }}>
+                  {Object.entries(trailsByPerson).map(
+                    ([personName, personTrails]) => (
+                      <Box key={personName}>
+                        <ListItem
+                          button
+                          onClick={() => handlePersonClick(personName)}
                           sx={{
-                            pl: 6,
-                            position: "relative",
-                            "&.Mui-selected": {
-                              bgcolor: "primary.light",
-                              "&:hover": {
-                                bgcolor: "primary.light",
-                              },
-                            },
+                            bgcolor:
+                              selectedPersonName === personName
+                                ? "action.selected"
+                                : "inherit",
                           }}
                         >
+                          <ListItemAvatar>
+                            <Avatar>
+                              <PersonIcon />
+                            </Avatar>
+                          </ListItemAvatar>
                           <ListItemText
-                            primary={formatDate(trail.timestamp)}
-                            secondary={formatDistance(trail.distance)}
-                            primaryTypographyProps={{ variant: "body2" }}
-                            secondaryTypographyProps={{ variant: "caption" }}
+                            primary={personName}
+                            secondary={`총 ${personTrails.length}개의 산책로`}
                           />
                           <IconButton
-                            size="small"
                             sx={{
-                              position: "absolute",
-                              right: 8,
                               transform:
-                                selectedTrail?.id === trail.id
-                                  ? "rotate(90deg)"
-                                  : "none",
-                              transition: "transform 0.3s ease-in-out",
+                                expandedPerson === personName
+                                  ? "rotate(180deg)"
+                                  : "rotate(0deg)",
+                              transition: "transform 0.3s",
                             }}
                           >
-                            <ArrowIcon />
+                            <ExpandMoreIcon />
                           </IconButton>
-                        </ListItemButton>
-                      ))}
-                      <Divider />
-                    </Box>
-                  )
-                )}
-              </List>
-            </Box>
-          </Paper>
+                        </ListItem>
+                        <Collapse in={expandedPerson === personName}>
+                          {personTrails.map((trail) => (
+                            <ListItemButton
+                              key={trail.id}
+                              onClick={() => handleTrailClick(trail)}
+                              selected={selectedTrail?.id === trail.id}
+                              sx={{
+                                pl: 6,
+                                position: "relative",
+                                "&.Mui-selected": {
+                                  bgcolor: "primary.light",
+                                  "&:hover": {
+                                    bgcolor: "primary.light",
+                                  },
+                                },
+                              }}
+                            >
+                              <IconButton
+                                size="small"
+                                onClick={(e) => handleDeleteClick(e, trail)}
+                                sx={{
+                                  mr: 1,
+                                  color: "error.main",
+                                  "&:hover": {
+                                    backgroundColor: "error.light",
+                                  },
+                                }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                              <ListItemText
+                                primary={formatDate(trail.timestamp)}
+                                secondary={formatDistance(trail.distance)}
+                                primaryTypographyProps={{ variant: "body2" }}
+                                secondaryTypographyProps={{
+                                  variant: "caption",
+                                }}
+                              />
+                              <IconButton
+                                size="small"
+                                sx={{
+                                  position: "absolute",
+                                  right: 8,
+                                  transform:
+                                    selectedTrail?.id === trail.id
+                                      ? "rotate(90deg)"
+                                      : "none",
+                                  transition: "transform 0.3s ease-in-out",
+                                }}
+                              >
+                                <ArrowIcon />
+                              </IconButton>
+                            </ListItemButton>
+                          ))}
+                        </Collapse>
+                        <Divider />
+                      </Box>
+                    )
+                  )}
+                </List>
+              </Box>
+            </Paper>
+          </Grid>
         </Grid>
-      </Grid>
-    </Box>
+      </Box>
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+      >
+        <DialogTitle>산책로 삭제</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {trailToDelete &&
+              `${formatDate(
+                trailToDelete.timestamp
+              )}의 산책로를 삭제하시겠습니까?`}
+            <br />이 작업은 되돌릴 수 없습니다.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>취소</Button>
+          <Button onClick={handleDeleteConfirm} color="error">
+            삭제
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 };
 

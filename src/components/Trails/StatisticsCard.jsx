@@ -1,5 +1,6 @@
 /* eslint-disable react/prop-types */
 import { useState, useEffect } from "react";
+import { deleteTrail } from "../../services/firebase";
 import {
   Typography,
   Paper,
@@ -14,6 +15,13 @@ import {
   Avatar,
   useTheme,
   IconButton,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Button,
+  Collapse,
 } from "@mui/material";
 import {
   DirectionsWalk as WalkIcon,
@@ -21,102 +29,53 @@ import {
   Person as PersonIcon,
   CalendarMonth as CalendarIcon,
   KeyboardArrowRight as ArrowIcon,
+  ExpandMore as ExpandMoreIcon,
 } from "@mui/icons-material";
+import DeleteIcon from "@mui/icons-material/Delete";
 
-// 타임스탬프를 Date 객체로 변환하는 헬퍼 함수
-const convertToDate = (timestamp) => {
-  if (!timestamp) return null;
-
-  // 이미 Date 객체인 경우
-  if (timestamp instanceof Date) return timestamp;
-
-  // Firestore Timestamp 객체인 경우
-  if (timestamp?.toDate instanceof Function) return timestamp.toDate();
-
-  // seconds와 nanoseconds를 가진 객체인 경우
-  if (timestamp?.seconds) return new Date(timestamp.seconds * 1000);
-
-  // timestamp가 숫자(밀리초)인 경우
-  if (typeof timestamp === "number") return new Date(timestamp);
-
-  return null;
-};
-
-// 날짜 포맷팅 함수
 const formatDate = (timestamp) => {
-  const date = convertToDate(timestamp);
-  if (!date) return "날짜 정보 없음";
-
-  try {
-    return date.toLocaleDateString("ko-KR", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      weekday: "long",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch (error) {
-    console.error("Date formatting error:", error);
-    return "날짜 형식 오류";
-  }
+  if (!timestamp) return "날짜 정보 없음";
+  const date = timestamp instanceof Date ? timestamp : timestamp?.toDate();
+  return date?.toLocaleDateString("ko-KR", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    weekday: "long",
+  });
 };
 
-// 시간 포맷팅 헬퍼 함수
 const formatTimeOnly = (timestamp) => {
-  const date = convertToDate(timestamp);
-  if (!date) return "시간 정보 없음";
-
-  try {
-    return date.toLocaleTimeString("ko-KR", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch (error) {
-    console.error("Time formatting error:", error);
-    return "시간 형식 오류";
-  }
+  if (!timestamp) return "시간 정보 없음";
+  const date = timestamp instanceof Date ? timestamp : timestamp?.toDate();
+  return date?.toLocaleTimeString("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 };
 
-// 시간 차이 계산 함수
 const formatDuration = (startTime, endTime) => {
-  const start = convertToDate(startTime);
-  const end = convertToDate(endTime);
-
-  if (!start || !end) return "시간 정보 없음";
-
-  try {
-    const durationMs = end - start;
-    const minutes = Math.floor(durationMs / (1000 * 60));
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = minutes % 60;
-    return `${hours}시간 ${remainingMinutes}분`;
-  } catch (error) {
-    console.error("Duration calculation error:", error);
-    return "시간 계산 오류";
-  }
+  if (!startTime || !endTime) return "시간 정보 없음";
+  const start = startTime instanceof Date ? startTime : startTime?.toDate();
+  const end = endTime instanceof Date ? endTime : endTime?.toDate();
+  const durationMs = end - start;
+  const minutes = Math.floor(durationMs / (1000 * 60));
+  return `${Math.floor(minutes / 60)}시간 ${minutes % 60}분`;
 };
 
-// 거리 포맷팅 함수
 const formatDistance = (distance) => {
   if (typeof distance !== "number") return "거리 정보 없음";
   return `${distance.toFixed(2)}km`;
 };
 
-// 걸음 수 계산 함수 (평균 보폭 기준)
 const calculateSteps = (distanceKm) => {
-  const averageStrideLength = 0.7; // 평균 보폭 0.7m
+  const averageStrideLength = 0.7;
   const distanceMeters = distanceKm * 1000;
   return Math.round(distanceMeters / averageStrideLength);
 };
 
-// 칼로리 계산 함수 (MET 값 기준)
 const calculateCalories = (distanceKm, durationMinutes) => {
-  // 걷기의 MET 값 (중간 강도 = 3.5)
   const MET = 3.5;
-  // 평균 체중 65kg 기준
   const weightKg = 65;
-  // 칼로리 = MET * 체중(kg) * 시간(hour)
   const hours = durationMinutes / 60;
   const calories = MET * weightKg * hours;
   return Math.round(calories);
@@ -124,13 +83,16 @@ const calculateCalories = (distanceKm, durationMinutes) => {
 
 const TrailDetail = ({ trail }) => {
   const startLocation = trail.path?.[0];
-  const startTime = convertToDate(trail.startTime);
+  const startTime =
+    trail.startTime instanceof Date
+      ? trail.startTime
+      : trail.startTime?.toDate();
   const endLocation = trail.path?.[trail.path.length - 1];
-  const endTime = convertToDate(trail.endTime);
+  const endTime =
+    trail.endTime instanceof Date ? trail.endTime : trail.endTime?.toDate();
   const durationMinutes =
     endTime && startTime ? Math.floor((endTime - startTime) / (1000 * 60)) : 0;
 
-  // 통계 계산
   const stats = {
     speed: ((trail.distance || 0) / (durationMinutes / 60)).toFixed(2),
     steps: calculateSteps(trail.distance || 0),
@@ -271,10 +233,7 @@ const TrailDetail = ({ trail }) => {
               </Typography>
               <Typography
                 variant="body1"
-                sx={{
-                  fontWeight: "medium",
-                  color: "text.primary",
-                }}
+                sx={{ fontWeight: "medium", color: "text.primary" }}
               >
                 {stat.value}
               </Typography>
@@ -298,47 +257,81 @@ const TrailDetail = ({ trail }) => {
   );
 };
 
-const StatisticsCard = ({ trails, onPersonSelect, selectedPerson }) => {
-  const [selectedTrail, setSelectedTrail] = useState(null);
+const StatisticsCard = ({
+  trails,
+  onPersonSelect,
+  onTrailSelect,
+  onTrailDeleted,
+  selectedPersonName,
+  selectedTrail,
+}) => {
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [trailToDelete, setTrailToDelete] = useState(null);
+  const [expandedPerson, setExpandedPerson] = useState(null);
   const [trailsByPerson, setTrailsByPerson] = useState({});
   const theme = useTheme();
 
   useEffect(() => {
-    try {
-      const groupedTrails = trails.reduce((acc, trail) => {
-        const name = trail.name || "이름 없음";
-        if (!acc[name]) {
-          acc[name] = [];
-        }
-        acc[name].push(trail);
-        return acc;
-      }, {});
+    const groupedTrails = (trails || []).reduce((acc, trail) => {
+      const name = trail.name || "이름 없음";
+      if (!acc[name]) {
+        acc[name] = [];
+      }
+      acc[name].push(trail);
+      return acc;
+    }, {});
 
-      Object.keys(groupedTrails).forEach((name) => {
-        groupedTrails[name].sort((a, b) => {
-          const dateA = convertToDate(a.timestamp);
-          const dateB = convertToDate(b.timestamp);
-          return dateB - dateA;
-        });
+    Object.keys(groupedTrails).forEach((name) => {
+      groupedTrails[name].sort((a, b) => {
+        const dateA =
+          a.timestamp instanceof Date ? a.timestamp : a.timestamp?.toDate();
+        const dateB =
+          b.timestamp instanceof Date ? b.timestamp : b.timestamp?.toDate();
+        return dateB - dateA;
       });
+    });
 
-      setTrailsByPerson(groupedTrails);
-    } catch (error) {
-      console.error("Error grouping trails:", error);
-      setTrailsByPerson({});
-    }
+    setTrailsByPerson(groupedTrails);
   }, [trails]);
 
   const handlePersonClick = (personName) => {
-    if (selectedPerson === personName) {
-      onPersonSelect(null); // Deselect if clicking the same person
+    if (selectedPersonName === personName) {
+      onPersonSelect(null);
+      setExpandedPerson(null);
     } else {
       onPersonSelect(personName);
+      setExpandedPerson(personName);
     }
+    onTrailSelect(null);
+  };
+
+  const handleTrailClick = (trail) => {
+    onTrailSelect(trail);
+  };
+
+  const handleDeleteClick = (e, trail) => {
+    e.stopPropagation();
+    setTrailToDelete(trail);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (trailToDelete) {
+      const success = await deleteTrail(trailToDelete.id);
+      if (success) {
+        // 삭제 후 목록 새로고침을 위해 부모 컴포넌트에서 trails를 다시 불러오는 함수 호출
+        onTrailDeleted();
+        if (selectedTrail?.id === trailToDelete.id) {
+          onTrailSelect(null);
+        }
+      }
+    }
+    setDeleteDialogOpen(false);
+    setTrailToDelete(null);
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <Paper
         elevation={2}
         sx={{
@@ -347,7 +340,6 @@ const StatisticsCard = ({ trails, onPersonSelect, selectedPerson }) => {
           overflow: "hidden",
         }}
       >
-        {/* 왼쪽 리스트 */}
         <Box
           sx={{
             width: "400px",
@@ -376,7 +368,7 @@ const StatisticsCard = ({ trails, onPersonSelect, selectedPerson }) => {
                     onClick={() => handlePersonClick(personName)}
                     sx={{
                       bgcolor:
-                        selectedPerson === personName
+                        selectedPersonName === personName
                           ? "action.selected"
                           : "inherit",
                     }}
@@ -390,48 +382,77 @@ const StatisticsCard = ({ trails, onPersonSelect, selectedPerson }) => {
                       primary={personName}
                       secondary={`총 ${personTrails.length}개의 산책로`}
                     />
-                  </ListItem>
-                  {personTrails.map((trail, index) => (
-                    <ListItemButton
-                      key={index}
-                      onClick={() => setSelectedTrail(trail)}
-                      selected={selectedTrail?.id === trail.id}
+                    <IconButton
                       sx={{
-                        pl: 6,
-                        position: "relative",
-                        transition: "all 0.2s ease-in-out",
-                        "&.Mui-selected": {
-                          bgcolor: "primary.light",
-                          "&:hover": {
-                            bgcolor: "primary.light",
-                          },
-                        },
+                        transform:
+                          expandedPerson === personName
+                            ? "rotate(180deg)"
+                            : "rotate(0deg)",
+                        transition: "transform 0.3s",
                       }}
                     >
-                      <ListItemText
-                        primary={formatDate(trail.timestamp)}
-                        secondary={`${formatDistance(
-                          trail.distance
-                        )} • ${formatDuration(trail.startTime, trail.endTime)}`}
-                        primaryTypographyProps={{ variant: "body2" }}
-                        secondaryTypographyProps={{ variant: "caption" }}
-                      />
-                      <IconButton
-                        size="small"
+                      <ExpandMoreIcon />
+                    </IconButton>
+                  </ListItem>
+                  <Collapse in={expandedPerson === personName}>
+                    {personTrails.map((trail) => (
+                      <ListItemButton
+                        key={trail.id}
+                        onClick={() => handleTrailClick(trail)}
+                        selected={selectedTrail?.id === trail.id}
                         sx={{
-                          position: "absolute",
-                          right: 8,
-                          transform:
-                            selectedTrail?.id === trail.id
-                              ? "rotate(90deg)"
-                              : "none",
-                          transition: "transform 0.3s ease-in-out",
+                          pl: 6,
+                          position: "relative",
+                          "&.Mui-selected": {
+                            bgcolor: "primary.light",
+                            "&:hover": {
+                              bgcolor: "primary.light",
+                            },
+                          },
                         }}
                       >
-                        <ArrowIcon />
-                      </IconButton>
-                    </ListItemButton>
-                  ))}
+                        <IconButton
+                          size="small"
+                          onClick={(e) => handleDeleteClick(e, trail)}
+                          sx={{
+                            mr: 1,
+                            color: "error.main",
+                            "&:hover": {
+                              backgroundColor: "error.light",
+                            },
+                          }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                        <ListItemText
+                          primary={formatDate(trail.timestamp)}
+                          secondary={`${formatDistance(
+                            trail.distance
+                          )} • ${formatDuration(
+                            trail.startTime,
+                            trail.endTime
+                          )}`}
+                          primaryTypographyProps={{ variant: "body2" }}
+                          secondaryTypographyProps={{ variant: "caption" }}
+                        />
+
+                        <IconButton
+                          size="small"
+                          sx={{
+                            position: "absolute",
+                            right: 8,
+                            transform:
+                              selectedTrail?.id === trail.id
+                                ? "rotate(90deg)"
+                                : "none",
+                            transition: "transform 0.3s ease-in-out",
+                          }}
+                        >
+                          <ArrowIcon />
+                        </IconButton>
+                      </ListItemButton>
+                    ))}
+                  </Collapse>
                   <Divider />
                 </Box>
               )
@@ -439,7 +460,6 @@ const StatisticsCard = ({ trails, onPersonSelect, selectedPerson }) => {
           </List>
         </Box>
 
-        {/* 오른쪽 상세 정보 */}
         <Box
           sx={{
             flex: 1,
@@ -468,7 +488,28 @@ const StatisticsCard = ({ trails, onPersonSelect, selectedPerson }) => {
           )}
         </Box>
       </Paper>
-    </Box>
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+      >
+        <DialogTitle>산책로 삭제</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {trailToDelete &&
+              `${formatDate(
+                trailToDelete.timestamp
+              )}의 산책로를 삭제하시겠습니까?`}
+            <br />이 작업은 되돌릴 수 없습니다.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>취소</Button>
+          <Button onClick={handleDeleteConfirm} color="error">
+            삭제
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 };
 
