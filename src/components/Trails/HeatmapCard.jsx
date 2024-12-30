@@ -1,6 +1,5 @@
-/* eslint-disable no-unused-vars */
 /* eslint-disable react/prop-types */
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { deleteTrail } from "../../services/firebase";
 import {
   Typography,
@@ -65,10 +64,11 @@ const formatDistance = (distance) => {
   return `${distance.toFixed(2)}km`;
 };
 
-const HeatMap = ({ trails, isLoaded, title, showReset, onReset }) => {
+const HeatMap = ({ trails, isLoaded, title, showReset, onReset, mapKey }) => {
   const [map, setMap] = useState(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [heatmapData, setHeatmapData] = useState([]);
+  const [currentMapKey, setCurrentMapKey] = useState(mapKey);
 
   const onLoad = useCallback((map) => {
     setMap(map);
@@ -81,26 +81,58 @@ const HeatMap = ({ trails, isLoaded, title, showReset, onReset }) => {
   }, []);
 
   useEffect(() => {
-    if (isLoaded && trails?.length > 0 && mapLoaded) {
-      const points = trails.flatMap(
-        (trail) =>
-          trail.path?.map(
-            (point) => new window.google.maps.LatLng(point._lat, point._long)
-          ) || []
-      );
-      setHeatmapData(points);
+    if (!isLoaded || !mapLoaded) {
+      setHeatmapData([]);
+      return;
+    }
 
+    if (!trails || trails.length === 0) {
+      setHeatmapData([]);
       if (map) {
-        const bounds = new window.google.maps.LatLngBounds();
-        points.forEach((point) => bounds.extend(point));
-        if (!bounds.isEmpty()) {
-          map.fitBounds(bounds);
-        }
+        map.setCenter(center);
+        map.setZoom(17);
       }
-    } else {
+      return;
+    }
+
+    const points = trails.flatMap(
+      (trail) =>
+        trail.path?.map(
+          (point) => new window.google.maps.LatLng(point._lat, point._long)
+        ) || []
+    );
+
+    setHeatmapData(points);
+
+    // Reset heatmap data when points are empty
+    if (points.length === 0) {
       setHeatmapData([]);
     }
+
+    if (map && points.length > 0) {
+      const bounds = new window.google.maps.LatLngBounds();
+      points.forEach((point) => bounds.extend(point));
+      if (!bounds.isEmpty()) {
+        map.fitBounds(bounds);
+      }
+    }
   }, [isLoaded, trails, mapLoaded, map]);
+
+  useEffect(() => {
+    if (mapKey !== currentMapKey) {
+      setCurrentMapKey(mapKey);
+      setHeatmapData([]);
+    }
+  }, [mapKey, currentMapKey]);
+
+  const handleReset = useCallback(() => {
+    setHeatmapData([]);
+    if (map) {
+      map.setCenter(center);
+      map.setZoom(17);
+    }
+    onReset();
+  }, [map, onReset]);
 
   return (
     <Paper
@@ -126,7 +158,7 @@ const HeatMap = ({ trails, isLoaded, title, showReset, onReset }) => {
         {showReset && trails?.length > 0 && (
           <Button
             startIcon={<RestartAltIcon />}
-            onClick={onReset}
+            onClick={handleReset}
             variant="outlined"
             size="small"
           >
@@ -137,6 +169,7 @@ const HeatMap = ({ trails, isLoaded, title, showReset, onReset }) => {
       <Box sx={{ flexGrow: 1, p: 1 }}>
         {isLoaded ? (
           <GoogleMap
+            key={mapKey}
             mapContainerStyle={containerStyle}
             center={center}
             zoom={17}
@@ -150,6 +183,7 @@ const HeatMap = ({ trails, isLoaded, title, showReset, onReset }) => {
           >
             {mapLoaded && heatmapData.length > 0 && (
               <HeatmapLayer
+                key={heatmapData.length}
                 data={heatmapData}
                 options={{
                   radius: 15,
@@ -179,6 +213,7 @@ const HeatmapCard = ({
   const [trailToDelete, setTrailToDelete] = useState(null);
   const [expandedPerson, setExpandedPerson] = useState(null);
   const [trailsByPerson, setTrailsByPerson] = useState({});
+  const [mapKey, setMapKey] = useState(Date.now());
   const theme = useTheme();
   const { isLoaded } = useJsApiLoader({
     id: "google-map-script",
@@ -234,7 +269,6 @@ const HeatmapCard = ({
     if (trailToDelete) {
       const success = await deleteTrail(trailToDelete.id);
       if (success) {
-        // 삭제 후 목록 새로고침을 위해 부모 컴포넌트에서 trails를 다시 불러오는 함수 호출
         onTrailDeleted();
         if (selectedTrail?.id === trailToDelete.id) {
           onTrailSelect(null);
@@ -249,6 +283,7 @@ const HeatmapCard = ({
     onPersonSelect(null);
     onTrailSelect(null);
     setExpandedPerson(null);
+    setMapKey(Date.now());
   };
 
   return (
@@ -273,6 +308,7 @@ const HeatmapCard = ({
               }
               showReset={true}
               onReset={resetSelection}
+              mapKey={mapKey}
             />
           </Grid>
           <Grid item xs={12}>
